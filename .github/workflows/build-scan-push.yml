@@ -1,0 +1,107 @@
+# Zadanie 2 - łańcuch CI/CD: build multi-arch -> test CVE (bramka) -> push do ghcr.io
+#
+# Warunki zadania realizowane w tym pliku:
+#   (a) obraz multi-arch  : linux/amd64 + linux/arm64        -> krok "Build & push"
+#   (b) cache registry max : docker.io/hubertkolejko/zad2-buildcache:cache (DockerHub)
+#   (c) bramka CVE         : push WYŁĄCZNIE gdy Trivy nie znajdzie CRITICAL/HIGH
+#
+# Idea bramki: obrazu multi-arch nie można załadować (--load) do lokalnego demona,
+# a skan musi nastąpić PRZED pushem. Dlatego:
+#   1. budujemy single-arch (amd64) z load:true i skanujemy go Trivym,
+#   2. jeśli skan przejdzie, budujemy multi-arch i pushujemy do ghcr.io.
+# Drugi build korzysta z cache zapełnionego w pierwszym (registry, mode=max) - jest szybki.
+
+name: build-scan-push
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*.*.*']
+  workflow_dispatch:
+
+env:
+  IMAGE: ghcr.io/ghostektheguy/docker_zad2            # ghcr.io wymaga małych liter
+  CACHE_REF: docker.io/hubertkolejko/zad2-buildcache:cache
+
+permissions:
+  contents: read
+  packages: write                                     # push obrazu do ghcr.io (GITHUB_TOKEN)
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # QEMU - emulacja, by zbudować arm64 na runnerze amd64.
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      # Buildx (driver docker-container) - wymagany do multi-arch i eksportera cache=registry.
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # Logowanie do DockerHub - potrzebne do zapisu/odczytu cache (cache-to/cache-from).
+      - name: Login to DockerHub (cache backend)
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      # Logowanie do GHCR - docelowe publiczne repozytorium obrazów.
+      - name: Login to GHCR (image registry)
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Automatyczne generowanie tagów i etykiet OCI obrazu.
+      - name: Docker metadata (tagi + labels)
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE }}
+          tags: |
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=sha,prefix=sha-
+            type=ref,event=branch
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+
+      # KROK 1 - build amd64 z load do lokalnego demona (na potrzeby skanu).
+      # Tu zapełniamy cache na DockerHub (mode=max - również warstwy pośrednie builder-a).
+      - name: Build amd64 (load do skanu)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64
+          load: true
+          tags: ${{ env.IMAGE }}:scan
+          cache-from: type=registry,ref=${{ env.CACHE_REF }}
+          cache-to: type=registry,ref=${{ env.CACHE_REF }},mode=max
+
+      # KROK 2 - BRAMKA CVE. exit-code 1 przy CRITICAL/HIGH przerywa joba => brak pushu.
+      - name: Trivy CVE scan (gate)
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: ${{ env.IMAGE }}:scan
+          format: table
+          severity: CRITICAL,HIGH
+          exit-code: '1'
+          ignore-unfixed: true
+          vuln-type: os,library
+
+      # KROK 3 - build multi-arch (amd64 + arm64) i push do ghcr.io.
+      # Wykona się TYLKO gdy KROK 2 przeszedł (fail-fast). cache-from = szybki rebuild.
+      - name: Build & push multi-arch (amd64 + arm64)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=registry,ref=${{ env.CACHE_REF }}
+          cache-to: type=registry,ref=${{ env.CACHE_REF }},mode=max
