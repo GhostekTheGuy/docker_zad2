@@ -1,0 +1,26 @@
+Name:      ghcr.io/ghostektheguy/docker_zad2:latest
+MediaType: application/vnd.oci.image.index.v1+json
+Digest:    sha256:6d7934dd16b5e565815cac10041823cfef255022a0dd70d8fead896aa7eeb509
+           
+Manifests: 
+  Name:        ghcr.io/ghostektheguy/docker_zad2:latest@sha256:54a448b74d626c7d4d0025c61cd0c392d4f0aa5026a9ba20d3d316bfbceb17bf
+  MediaType:   application/vnd.oci.image.manifest.v1+json
+  Platform:    linux/amd64
+               
+  Name:        ghcr.io/ghostektheguy/docker_zad2:latest@sha256:ccdfa335608b2beb19d102a15e26ef6ef40c159fa8d5756e28a661ee86a857f4
+  MediaType:   application/vnd.oci.image.manifest.v1+json
+  Platform:    linux/arm64
+               
+  Name:        ghcr.io/ghostektheguy/docker_zad2:latest@sha256:14ec0654240f5b5663b3035a47f8d82ba002beeded05fa596f48c6fc69171dbf
+  MediaType:   application/vnd.oci.image.manifest.v1+json
+  Platform:    unknown/unknown
+  Annotations: 
+    vnd.docker.reference.digest: sha256:54a448b74d626c7d4d0025c61cd0c392d4f0aa5026a9ba20d3d316bfbceb17bf
+    vnd.docker.reference.type:   attestation-manifest
+               
+  Name:        ghcr.io/ghostektheguy/docker_zad2:latest@sha256:8d2728c132866e623e66721f96bd92a76c76a00f4c0da91522e90b5f39c98d93
+  MediaType:   application/vnd.oci.image.manifest.v1+json
+  Platform:    unknown/unknown
+  Annotations: 
+    vnd.docker.reference.digest: sha256:ccdfa335608b2beb19d102a15e26ef6ef40c159fa8d5756e28a661ee86a857f4
+    vnd.docker.reference.type:   attestation-manifest

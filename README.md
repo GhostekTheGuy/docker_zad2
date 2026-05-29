@@ -73,4 +73,4 @@ docker buildx imagetools inspect ghcr.io/ghostektheguy/docker_zad2:latest
 ```
 
 Przykładowy udany przebieg łańcucha:
-https://github.com/GhostekTheGuy/docker_zad2/actions/runs/26664672309
+https://github.com/GhostekTheGuy/docker_zad2/actions/runs/26665158416
